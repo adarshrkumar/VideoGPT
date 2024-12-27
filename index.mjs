@@ -16,12 +16,19 @@ async function getExecution(id, res) {
   })
   const result = await response.json();
 
-  if (result.content.status === 'processing') {
-    setTimeout(() => getExecution(id, res), 1000);
-    return
-  }
+  if (!result.content) result.content = {};
+  if (!result.content.status) result.content.status = 'error';
 
-  res.send(result.content.results.image__background_removal);
+  switch (result.content.status) {
+    case 'succeded':
+      res.send(result.content.result.results.image__background_removal);
+      break;
+    case 'processing': 
+      setTimeout(() => getExecution(id, res), 5000);
+      break
+    default:
+      res.send(result);
+
 }
 
 app.get('/', async (req, res) => {
