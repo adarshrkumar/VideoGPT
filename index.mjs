@@ -1,5 +1,8 @@
 import FormData from 'form-data';
+
+import request from 'request';
 import fetch from 'node-fetch';
+
 import fs from 'fs';
 
 import express from 'express';
@@ -28,15 +31,20 @@ async function getExecution(id, res) {
       break
     default:
       res.send(result);
-
+  }
 }
 
 app.get('/', async (req, res) => {
   const form = new FormData();
+  var fName = encodeURIComponent(req.query.url || 'default-image.png');
 
-  form.append('file', fs.createReadStream('./test-image.jpg'), 'test-image.jpg');
+  if (!fs.existsSync('./temp')) fs.mkdirSync('./temp');
 
-  const response = await fetch(url, {
+  request(url).pipe(fs.createWriteStream(`./temp/${fName}`))
+
+  form.append('file', fs.createReadStream(`./temp/${fName}`), fName);
+
+  await fetch(url, {
     method: 'POST',
     headers: {
       ...form.getHeaders(), // Add FormData headers
