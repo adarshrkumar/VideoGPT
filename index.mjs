@@ -1,6 +1,4 @@
-import FormData from 'form-data';
-
-import request from 'request';
+import RunwayML from '@runwayml/sdk';
 import fetch from 'node-fetch';
 
 import fs from 'fs';
@@ -8,72 +6,50 @@ import fs from 'fs';
 import express from 'express';
 const app = express();
 
-const url = "https://api.edenai.run/v2/workflow/9c7ef864-8d59-4ebf-87c6-3fde471dc10b/execution/"
-
 import useErrorTemplate from './error.mjs';
+import { url } from 'inspector';
 
 async function getExecution(id, res, i) {
-  const response = await fetch(`${url}/${id}`.replaceAll('//', '/'), {
-    headers: {
-      "Content-Type": "application/json",
-      'Authorization': `Bearer ${process.env.TOKEN}`
-    },
-  })
-  const result = await response.json();
-
-  if (!result.content) result.content = {};
-  if (!result.content.status) result.content.status = 'error';
+  const task = await client.tasks.retrieve(id);
+  console.log(task);
 
   if (i > 60) {
     res.status(408).send(useErrorTemplate(408, `Session Timeout, please try again later.\nYou can get the execution again on its own by using the /getExecution endpoint with the id of the execution which is "${id}"`))
     return
   }
 
-  switch (result.content.status) {
-    case 'succeded':
-      res.send(result.content.result.results.image__background_removal);
-      break;
-    case 'processing': 
-      setTimeout(() => getExecution(id, res, i++), 5000);
-      break
-    default:
-      res.send(result);
-  }
+  // switch (result.content.status) {
+  //   case 'succeded':
+  //     res.send(result.content.result.results.image__background_removal);
+  //     break;
+  //   case 'processing': 
+  //     setTimeout(() => getExecution(id, res, i++), 5000);
+  //     break
+  //   default:
+      res.json(task);
+  // }
 }
 
 app.get('/', async (req, res) => {
-  const form = new FormData();
-  var fName = decodeURIComponent(req.query.url || 'default-image.png');
 
-  if (!fs.existsSync('./temp')) fs.mkdirSync('./temp');
+  // The env var RUNWAYML_API_SECRET is expected to contain your API key.
+  const client = new RunwayML();
+  
+    const task = await client.imageToVideo.create({
+      model: 'gen3a_turbo',
+      promptImage: req.query.image_url,
+      promptText: req.query.prompt,
+    });
+    res.json({id: task.id});
 
-  if (fName === 'default-image.png') {
-    fs.copyFileSync(`./default-image.png`, `./temp/${fName}`)
-  }
-  if (!fs.existsSync(fs.createWriteStream(`./temp/${fName}`))) {
-    request(url).pipe(fs.createWriteStream(`./temp/${fName}`))
-  }
-
-
-  form.append('file', fs.createReadStream(`./temp/${fName}`), fName);
-
-  await fetch(url, {
-    method: 'POST',
-    headers: {
-      ...form.getHeaders(), // Add FormData headers
-      'Authorization': `Bearer ${process.env.TOKEN}`
-    },
-    body: form
-  })
-    .then(response => response.json())
-    .then(json  => getExecution(json.id, res, 0))
+    // res.json(getExecution(task.id, res, 0))
 });
 
-app.get('/getExecution', async (req, res) => {
+app.get('/getExecution', (req, res) => {
   getExecution(req.query.id, res, 0)
 });
 
-app.get('/base64Upload', async (req, res) => {
+app.get('/base64Upload', (req, res) => {
   var fPath = decodeURIComponent(req.query.path) || 'error';
   var path = fPath.replaceAll('/', '_')
   var content = req.query.b64content
@@ -82,7 +58,16 @@ app.get('/base64Upload', async (req, res) => {
 
   if (fName !== 'error') fs.writeFileSync(`./temp/${path}.png`, content, 'base64')
 
-  res.json({status: 'success', message: `Wrote to file "${fPath}" please use that as the url param please`})
+  res.json({status: 'success', message: `Wrote to file "${fPath}" please use that as the url param please`, url: `${req.protocol}//${req.host}/temp/${path}.png`})
+});
+
+app.get('/temp/:file', (req, res) => {
+  if (!fs.existsSync(`/temp/${req.params.file}`)) {
+    useErrorTemplate(404, `File not found`)
+    return
+  }
+
+  res.sendFile(`/temp/${req.params.file}` , { root : '.' });
 });
 
 app.listen(3000, () => {
