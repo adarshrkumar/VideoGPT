@@ -36,11 +36,17 @@ async function getExecution(id, res) {
 
 app.get('/', async (req, res) => {
   const form = new FormData();
-  var fName = encodeURIComponent(req.query.url || 'default-image.png');
+  var fName = decodeURIComponent(req.query.url || 'default-image.png');
 
   if (!fs.existsSync('./temp')) fs.mkdirSync('./temp');
 
-  request(url).pipe(fs.createWriteStream(`./temp/${fName}`))
+  if (fName === 'default-image.png') {
+    fs.copyFileSync(`./default-image.png`, `./temp/${fName}`)
+  }
+  if (!fs.existsSync(fs.createWriteStream(`./temp/${fName}`))) {
+    request(url).pipe(fs.createWriteStream(`./temp/${fName}`))
+  }
+
 
   form.append('file', fs.createReadStream(`./temp/${fName}`), fName);
 
@@ -58,6 +64,18 @@ app.get('/', async (req, res) => {
 
 app.get('/getExecution', async (req, res) => {
   getExecution(req.query.id, res)
+});
+
+app.get('/base64Upload', async (req, res) => {
+  var fPath = decodeURIComponent(req.query.path) || 'error';
+  var path = fPath.replaceAll('/', '_')
+  var content = req.query.b64content
+
+  if (!fs.existsSync('./temp')) fs.mkdirSync('./temp');
+
+  if (fName !== 'error') fs.writeFileSync(`./temp/${path}.png`, content, 'base64')
+
+  res.json({status: 'success', message: `Wrote to file "${fPath}" please use that as the url param please`})
 });
 
 app.listen(3000, () => {
