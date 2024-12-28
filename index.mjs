@@ -10,7 +10,7 @@ const app = express();
 
 const url = "https://api.edenai.run/v2/workflow/9c7ef864-8d59-4ebf-87c6-3fde471dc10b/execution/"
 
-async function getExecution(id, res) {
+async function getExecution(id, res, i) {
   const response = await fetch(`${url}/${id}`.replaceAll('//', '/'), {
     headers: {
       "Content-Type": "application/json",
@@ -22,12 +22,17 @@ async function getExecution(id, res) {
   if (!result.content) result.content = {};
   if (!result.content.status) result.content.status = 'error';
 
+  if (i > 60) {
+    res.status(408).json({status: 'error', message: 'Session Timeout, please try again later'})
+    return
+  }
+
   switch (result.content.status) {
     case 'succeded':
       res.send(result.content.result.results.image__background_removal);
       break;
     case 'processing': 
-      setTimeout(() => getExecution(id, res), 5000);
+      setTimeout(() => getExecution(id, res, i++), 5000);
       break
     default:
       res.send(result);
@@ -59,11 +64,11 @@ app.get('/', async (req, res) => {
     body: form
   })
     .then(response => response.json())
-    .then(json  => getExecution(json.id, res))
+    .then(json  => getExecution(json.id, res, 0))
 });
 
 app.get('/getExecution', async (req, res) => {
-  getExecution(req.query.id, res)
+  getExecution(req.query.id, res, 0)
 });
 
 app.get('/base64Upload', async (req, res) => {
