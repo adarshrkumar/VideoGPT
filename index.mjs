@@ -10,6 +10,8 @@ const app = express();
 
 const url = "https://api.edenai.run/v2/workflow/9c7ef864-8d59-4ebf-87c6-3fde471dc10b/execution/"
 
+import useErrorTemplate from './error.mjs';
+
 async function getExecution(id, res, i) {
   const response = await fetch(`${url}/${id}`.replaceAll('//', '/'), {
     headers: {
@@ -23,7 +25,7 @@ async function getExecution(id, res, i) {
   if (!result.content.status) result.content.status = 'error';
 
   if (i > 60) {
-    res.status(408).json({status: 'error', message: 'Session Timeout, please try again later'})
+    res.status(408).send(useErrorTemplate(408, `Session Timeout, please try again later.\nYou can get the execution again on its own by using the /getExecution endpoint with the id of the execution which is "${id}"`))
     return
   }
 
