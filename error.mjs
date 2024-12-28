@@ -1,6 +1,7 @@
 import fs from 'fs';
 
-import errorCodes from './errorCodes.mjs';
+import errors from './errorCodes.mjs';
+errorCodes = errors.codes;
 
 var errorTemplateFile = fs.readFileSync('./error.html', 'utf8');
 
