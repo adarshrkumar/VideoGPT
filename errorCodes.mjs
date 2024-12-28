@@ -118,4 +118,4 @@ var codes = {
     299: 'Miscellaneous Persistent Warning',
 }
 
-export default codes
+export default { keys: Object.keys(codes), codes: codes };
